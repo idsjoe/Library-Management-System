@@ -1,260 +1,222 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX_BOOKS 100
+#define TITLE_LEN 100
+#define AUTHOR_LEN 100
 
-struct Book {
-    char title[100];
-    char author[100];
-    int isIssued; // 0 for not issued, 1 for issued
-};
+typedef struct {
+    char title[TITLE_LEN];
+    char author[AUTHOR_LEN];
+    int issued;
+} Book;
 
-struct Library {
-    struct Book books[MAX_BOOKS];
-    int numBooks;
-    int numIssuedBooks;
-};
+typedef struct {
+    Book books[MAX_BOOKS];
+    int count;
+    int issuedCount;
+} Library;
 
-void addBook(struct Library *library);
-void showBooks(struct Library *library);
-void deleteBook(struct Library *library);
-void sortBooks(struct Library *library);
-void searchBook(struct Library *library);
-void totalBooks(struct Library *library);
-void totalIssuedBooks(struct Library *library);
-void issueBook(struct Library *library);
-void returnBook(struct Library *library);
-void clearInputBuffer();
+void toTitleCase(char *str);
+void clearInput();
+void add(Library *lib);
+void display(const Library *lib);
+void removeBook(Library *lib);
+void sort(Library *lib);
+void find(const Library *lib);
+void showTotal(const Library *lib);
+void showIssued(const Library *lib);
+void borrow(Library *lib);
+void returnBook(Library *lib);
 
 int main() {
-    struct Library library;
-    library.numBooks = 0;
-    library.numIssuedBooks = 0;
-
+    Library lib = {0};
     int choice;
 
     do {
-        printf("\nLibrary Management System\n");
-        printf("1. Add Book\n");
-        printf("2. Show All Books\n");
-        printf("3. Delete Book\n");
-        printf("4. Sort Books\n");
-        printf("5. Search Book\n");
-        printf("6. Total Books\n");
-        printf("7. Total Issued Books\n");
-        printf("8. Issue Book\n");
-        printf("9. Return Book\n");
-        printf("10. Exit\n");
-
-        printf("Enter your choice: ");
+        printf("\nLibrary System\n"
+               "1. Add Book\n2. Display Books\n3. Remove Book\n"
+               "4. Sort Books\n5. Find Book\n6. Total Books\n"
+               "7. Issued Books\n8. Borrow Book\n9. Return Book\n"
+               "10. Exit\nChoice: ");
         scanf("%d", &choice);
+        clearInput();
 
         switch (choice) {
-            case 1:
-                addBook(&library);
-                break;
-            case 2:
-                showBooks(&library);
-                break;
-            case 3:
-                deleteBook(&library);
-                break;
-            case 4:
-                sortBooks(&library);
-                break;
-            case 5:
-                searchBook(&library);
-                break;
-            case 6:
-                totalBooks(&library);
-                break;
-            case 7:
-                totalIssuedBooks(&library);
-                break;
-            case 8:
-                issueBook(&library);
-                break;
-            case 9:
-                returnBook(&library);
-                break;
-            case 10:
-                printf("Exiting the program. Goodbye!\n");
-                break;
-            default:
-                printf("Invalid choice. Please enter a valid option.\n");
+            case 1: add(&lib); break;
+            case 2: display(&lib); break;
+            case 3: removeBook(&lib); break;
+            case 4: sort(&lib); break;
+            case 5: find(&lib); break;
+            case 6: showTotal(&lib); break;
+            case 7: showIssued(&lib); break;
+            case 8: borrow(&lib); break;
+            case 9: returnBook(&lib); break;
+            case 10: printf("Exiting...\n"); break;
+            default: printf("Invalid choice.\n");
         }
     } while (choice != 10);
-
     return 0;
 }
 
-void addBook(struct Library *library) {
-    if (library->numBooks < MAX_BOOKS) {
-        printf("Enter book title: ");
-        clearInputBuffer();
-        fgets(library->books[library->numBooks].title, sizeof(library->books[library->numBooks].title), stdin);
-        strtok(library->books[library->numBooks].title, "\n"); // remove newline character
+void add(Library *lib) {
+    if (lib->count >= MAX_BOOKS) {
+        printf("Library is full.\n");
+        return;
+    }
+    Book *book = &lib->books[lib->count];
+    printf("Title: ");
+    fgets(book->title, TITLE_LEN, stdin);
+    book->title[strcspn(book->title, "\n")] = 0;
+    toTitleCase(book->title);
 
-        printf("Enter author: ");
-        fgets(library->books[library->numBooks].author, sizeof(library->books[library->numBooks].author), stdin);
-        strtok(library->books[library->numBooks].author, "\n"); // remove newline character
+    printf("Author: ");
+    fgets(book->author, AUTHOR_LEN, stdin);
+    book->author[strcspn(book->author, "\n")] = 0;
+    toTitleCase(book->author);
 
-        library->books[library->numBooks].isIssued = 0; // Book is not issued initially
+    book->issued = 0;
+    lib->count++;
+    printf("Book added.\n");
+}
 
-        library->numBooks++;
-        printf("Book added successfully!\n");
-    } else {
-        printf("Library is full. Cannot add more books.\n");
+void display(const Library *lib) {
+    if (lib->count == 0) {
+        printf("No books.\n");
+        return;
+    }
+    printf("Books:\n");
+    for (int i = 0; i < lib->count; i++) {
+        printf("%s by %s - %s\n", lib->books[i].title, lib->books[i].author,
+               lib->books[i].issued ? "Issued" : "Available");
     }
 }
 
-void showBooks(struct Library *library) {
-    if (library->numBooks == 0) {
-        printf("No books available.\n");
-    } else {
-        printf("All Books:\n");
-        for (int i = 0; i < library->numBooks; ++i) {
-            printf("%s by %s - %s\n", library->books[i].title, library->books[i].author,
-                   (library->books[i].isIssued ? "Issued" : "Available"));
-        }
-    }
-}
+void removeBook(Library *lib) {
+    char title[TITLE_LEN];
+    printf("Title to remove: ");
+    fgets(title, TITLE_LEN, stdin);
+    title[strcspn(title, "\n")] = 0;
+    toTitleCase(title);
 
-void deleteBook(struct Library *library) {
-    char title[100];
-    int found = 0;
-
-    printf("Enter the title of the book to delete: ");
-    clearInputBuffer();
-    fgets(title, sizeof(title), stdin);
-    strtok(title, "\n"); // remove newline character
-
-    for (int i = 0; i < library->numBooks; ++i) {
-        if (strcmp(library->books[i].title, title) == 0) {
-            found = 1;
-            for (int j = i; j < library->numBooks - 1; ++j) {
-                library->books[j] = library->books[j + 1];
+    for (int i = 0; i < lib->count; i++) {
+        if (strcmp(lib->books[i].title, title) == 0) {
+            if(lib->books[i].issued){
+                lib->issuedCount--;
             }
-            library->numBooks--;
-            printf("Book deleted successfully!\n");
-            break;
+            memmove(&lib->books[i], &lib->books[i + 1], (lib->count - i - 1) * sizeof(Book));
+            lib->count--;
+            printf("Book removed.\n");
+            return;
         }
     }
-
-    if (!found) {
-        printf("Book not found.\n");
-    }
+    printf("Book not found.\n");
 }
 
-void sortBooks(struct Library *library) {
-    // Bubble sort based on title
-    for (int i = 0; i < library->numBooks - 1; ++i) {
-        for (int j = 0; j < library->numBooks - i - 1; ++j) {
-            if (strcmp(library->books[j].title, library->books[j + 1].title) > 0) {
-                // Swap
-                struct Book temp = library->books[j];
-                library->books[j] = library->books[j + 1];
-                library->books[j + 1] = temp;
+void sort(Library *lib) {
+    for (int i = 0; i < lib->count - 1; i++) {
+        for (int j = 0; j < lib->count - i - 1; j++) {
+            if (strcmp(lib->books[j].title, lib->books[j + 1].title) > 0) {
+                Book temp = lib->books[j];
+                lib->books[j] = lib->books[j + 1];
+                lib->books[j + 1] = temp;
             }
         }
     }
-
-    printf("Books sorted successfully!\n");
+    printf("Books sorted.\n");
 }
 
-void searchBook(struct Library *library) {
-    char title[100];
-    char author[100];
-    int found = 0;
+void find(const Library *lib) {
+    char title[TITLE_LEN], author[AUTHOR_LEN];
+    printf("Title: ");
+    fgets(title, TITLE_LEN, stdin);
+    title[strcspn(title, "\n")] = 0;
+    toTitleCase(title);
 
-    printf("Enter book title: ");
-    clearInputBuffer();
-    fgets(title, sizeof(title), stdin);
-    strtok(title, "\n"); // remove newline character
+    printf("Author: ");
+    fgets(author, AUTHOR_LEN, stdin);
+    author[strcspn(author, "\n")] = 0;
+    toTitleCase(author);
 
-    printf("Enter author: ");
-    fgets(author, sizeof(author), stdin);
-    strtok(author, "\n"); // remove newline character
-
-    for (int i = 0; i < library->numBooks; ++i) {
-        if (strcmp(library->books[i].title, title) == 0 && strcmp(library->books[i].author, author) == 0) {
-            found = 1;
-            printf("Book Found: %s by %s - %s\n", library->books[i].title, library->books[i].author,
-                   (library->books[i].isIssued ? "Issued" : "Available"));
-            break;
+    for (int i = 0; i < lib->count; i++) {
+        if (strcmp(lib->books[i].title, title) == 0 && strcmp(lib->books[i].author, author) == 0) {
+            printf("Found: %s by %s - %s\n", lib->books[i].title, lib->books[i].author,
+                   lib->books[i].issued ? "Issued" : "Available");
+            return;
         }
     }
-
-    if (!found) {
-        printf("No matching book found.\n");
-    }
+    printf("Book not found.\n");
 }
 
-void totalBooks(struct Library *library) {
-    printf("Total number of books: %d\n", library->numBooks);
+void showTotal(const Library *lib) {
+    printf("Total books: %d\n", lib->count);
 }
 
-void totalIssuedBooks(struct Library *library) {
-    printf("Total number of issued books: %d\n", library->numIssuedBooks);
+void showIssued(const Library *lib) {
+    printf("Issued books: %d\n", lib->issuedCount);
 }
 
-void issueBook(struct Library *library) {
-    char title[100];
-    int found = 0;
+void borrow(Library *lib) {
+    char title[TITLE_LEN];
+    printf("Title to borrow: ");
+    fgets(title, TITLE_LEN, stdin);
+    title[strcspn(title, "\n")] = 0;
+    toTitleCase(title);
 
-    printf("Enter the title of the book to issue: ");
-    clearInputBuffer();
-    fgets(title, sizeof(title), stdin);
-    strtok(title, "\n"); // remove newline character
-
-    for (int i = 0; i < library->numBooks; ++i) {
-        if (strcmp(library->books[i].title, title) == 0) {
-            found = 1;
-            if (library->books[i].isIssued) {
-                printf("Book is already issued.\n");
+    for (int i = 0; i < lib->count; i++) {
+        if (strcmp(lib->books[i].title, title) == 0) {
+            if (lib->books[i].issued) {
+                printf("Book already issued.\n");
             } else {
-                library->books[i].isIssued = 1;
-                library->numIssuedBooks++;
-                printf("Book issued successfully!\n");
+                lib->books[i].issued = 1;
+                lib->issuedCount++;
+                printf("Book borrowed.\n");
             }
-            break;
+            return;
         }
     }
-
-    if (!found) {
-        printf("Book not found.\n");
-    }
+    printf("Book not found.\n");
 }
 
-void returnBook(struct Library *library) {
-    char title[100];
-    int found = 0;
+void returnBook(Library *lib) {
+    char title[TITLE_LEN];
+    printf("Title to return: ");
+    fgets(title, TITLE_LEN, stdin);
+    title[strcspn(title, "\n")] = 0;
+    toTitleCase(title);
 
-    printf("Enter the title of the book to return: ");
-    clearInputBuffer();
-    fgets(title, sizeof(title), stdin);
-    strtok(title, "\n"); // remove newline character
-
-    for (int i = 0; i < library->numBooks; ++i) {
-        if (strcmp(library->books[i].title, title) == 0) {
-            found = 1;
-            if (library->books[i].isIssued) {
-                library->books[i].isIssued = 0;
-                library->numIssuedBooks--;
-                printf("Book returned successfully!\n");
+    for (int i = 0; i < lib->count; i++) {
+        if (strcmp(lib->books[i].title, title) == 0) {
+            if (lib->books[i].issued) {
+                lib->books[i].issued = 0;
+                lib->issuedCount--;
+                printf("Book returned.\n");
             } else {
                 printf("Book is not issued.\n");
             }
-            break;
+            return;
         }
     }
-
-    if (!found) {
-        printf("Book not found.\n");
-    }
+    printf("Book not found.\n");
 }
 
-void clearInputBuffer() {
-    while (getchar() != '\n');
+void clearInput() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+void toTitleCase(char *str) {
+    int capitalize = 1;
+    for (int i = 0; str[i]; i++) {
+        if (isspace(str[i])) {
+            capitalize = 1;
+        } else if (capitalize) {
+            str[i] = toupper(str[i]);
+            capitalize = 0;
+        } else {
+            str[i] = tolower(str[i]);
+        }
+    }
 }
