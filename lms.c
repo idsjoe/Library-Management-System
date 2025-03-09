@@ -2,15 +2,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #define MAX_BOOKS 100
 #define TITLE_LEN 100
 #define AUTHOR_LEN 100
+#define BORROWER_LEN 50
+#define DUE_DATE_LEN 20
 
 typedef struct {
     char title[TITLE_LEN];
     char author[AUTHOR_LEN];
     int issued;
+    char borrower[BORROWER_LEN];
+    char dueDate[DUE_DATE_LEN];
 } Book;
 
 typedef struct {
@@ -30,17 +35,24 @@ void showTotal(const Library *lib);
 void showIssued(const Library *lib);
 void borrow(Library *lib);
 void returnBook(Library *lib);
+void saveLibrary(const Library *lib, const char *filename);
+void loadLibrary(Library *lib, const char *filename);
+void displayIssued(const Library *lib);
+void displayAvailable(const Library *lib);
 
 int main() {
     Library lib = {0};
     int choice;
+    char filename[] = "library.dat";
+
+    loadLibrary(&lib, filename);
 
     do {
         printf("\nLibrary System\n"
                "1. Add Book\n2. Display Books\n3. Remove Book\n"
                "4. Sort Books\n5. Find Book\n6. Total Books\n"
                "7. Issued Books\n8. Borrow Book\n9. Return Book\n"
-               "10. Exit\nChoice: ");
+               "10. Exit\n11. Save Library\n12. Display Issued Books\n13. Display Available Books\nChoice: ");
         scanf("%d", &choice);
         clearInput();
 
@@ -55,9 +67,13 @@ int main() {
             case 8: borrow(&lib); break;
             case 9: returnBook(&lib); break;
             case 10: printf("Exiting...\n"); break;
+            case 11: saveLibrary(&lib, filename); break;
+            case 12: displayIssued(&lib); break;
+            case 13: displayAvailable(&lib); break;
             default: printf("Invalid choice.\n");
         }
     } while (choice != 10);
+
     return 0;
 }
 
@@ -78,6 +94,8 @@ void add(Library *lib) {
     toTitleCase(book->author);
 
     book->issued = 0;
+    memset(book->borrower, 0, sizeof(book->borrower));
+    memset(book->dueDate, 0, sizeof(book->dueDate));
     lib->count++;
     printf("Book added.\n");
 }
@@ -89,8 +107,12 @@ void display(const Library *lib) {
     }
     printf("Books:\n");
     for (int i = 0; i < lib->count; i++) {
-        printf("%s by %s - %s\n", lib->books[i].title, lib->books[i].author,
-               lib->books[i].issued ? "Issued" : "Available");
+        printf("%s by %s - %s", lib->books[i].title, lib->books[i].author, lib->books[i].issued ? "Issued" : "Available");
+        if(lib->books[i].issued){
+            printf(" - Borrower: %s, Due: %s\n", lib->books[i].borrower, lib->books[i].dueDate);
+        } else {
+            printf("\n");
+        }
     }
 }
 
@@ -103,7 +125,7 @@ void removeBook(Library *lib) {
 
     for (int i = 0; i < lib->count; i++) {
         if (strcmp(lib->books[i].title, title) == 0) {
-            if(lib->books[i].issued){
+            if (lib->books[i].issued) {
                 lib->issuedCount--;
             }
             memmove(&lib->books[i], &lib->books[i + 1], (lib->count - i - 1) * sizeof(Book));
@@ -142,8 +164,12 @@ void find(const Library *lib) {
 
     for (int i = 0; i < lib->count; i++) {
         if (strcmp(lib->books[i].title, title) == 0 && strcmp(lib->books[i].author, author) == 0) {
-            printf("Found: %s by %s - %s\n", lib->books[i].title, lib->books[i].author,
-                   lib->books[i].issued ? "Issued" : "Available");
+            printf("Found: %s by %s - %s", lib->books[i].title, lib->books[i].author, lib->books[i].issued ? "Issued" : "Available");
+            if(lib->books[i].issued){
+                printf(" - Borrower: %s, Due: %s\n", lib->books[i].borrower, lib->books[i].dueDate);
+            } else {
+                printf("\n");
+            }
             return;
         }
     }
@@ -172,51 +198,9 @@ void borrow(Library *lib) {
             } else {
                 lib->books[i].issued = 1;
                 lib->issuedCount++;
-                printf("Book borrowed.\n");
-            }
-            return;
-        }
-    }
-    printf("Book not found.\n");
-}
-
-void returnBook(Library *lib) {
-    char title[TITLE_LEN];
-    printf("Title to return: ");
-    fgets(title, TITLE_LEN, stdin);
-    title[strcspn(title, "\n")] = 0;
-    toTitleCase(title);
-
-    for (int i = 0; i < lib->count; i++) {
-        if (strcmp(lib->books[i].title, title) == 0) {
-            if (lib->books[i].issued) {
-                lib->books[i].issued = 0;
-                lib->issuedCount--;
-                printf("Book returned.\n");
-            } else {
-                printf("Book is not issued.\n");
-            }
-            return;
-        }
-    }
-    printf("Book not found.\n");
-}
-
-void clearInput() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-}
-
-void toTitleCase(char *str) {
-    int capitalize = 1;
-    for (int i = 0; str[i]; i++) {
-        if (isspace(str[i])) {
-            capitalize = 1;
-        } else if (capitalize) {
-            str[i] = toupper(str[i]);
-            capitalize = 0;
-        } else {
-            str[i] = tolower(str[i]);
-        }
-    }
-}
+                printf("Borrower Name: ");
+                fgets(lib->books[i].borrower, BORROWER_LEN, stdin);
+                lib->books[i].borrower[strcspn(lib->books[i].borrower, "\n")] = 0;
+                printf("Due Date (YYYY-MM-DD): ");
+                fgets(lib->books[i].dueDate, DUE_DATE_LEN, stdin);
+                lib
